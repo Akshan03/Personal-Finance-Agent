@@ -1,0 +1,103 @@
+{
+  "stocks": [
+    {
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "price": 178.50,
+      "change": 1.25,
+      "percent_change": 0.7,
+      "volume": 45023651
+    },
+    {
+      "symbol": "MSFT",
+      "name": "Microsoft Corporation",
+      "price": 415.20,
+      "change": -2.30,
+      "percent_change": -0.55,
+      "volume": 28103456
+    },
+    {
+      "symbol": "AMZN",
+      "name": "Amazon.com Inc.",
+      "price": 182.75,
+      "change": 0.90,
+      "percent_change": 0.49,
+      "volume": 32456789
+    },
+    {
+      "symbol": "GOOGL",
+      "name": "Alphabet Inc.",
+      "price": 165.30,
+      "change": -0.75,
+      "percent_change": -0.45,
+      "volume": 18903456
+    },
+    {
+      "symbol": "TSLA",
+      "name": "Tesla Inc.",
+      "price": 175.25,
+      "change": 5.60,
+      "percent_change": 3.30,
+      "volume": 65234987
+    },
+    {
+      "symbol": "VUSA",
+      "name": "Vanguard S&P 500 ETF",
+      "price": 105.30,
+      "change": 0.45,
+      "percent_change": 0.43,
+      "volume": 12345678
+    },
+    {
+      "symbol": "BND",
+      "name": "Vanguard Total Bond Market ETF",
+      "price": 72.45,
+      "change": -0.15,
+      "percent_change": -0.21,
+      "volume": 8765432
+    },
+    {
+      "symbol": "GOVT",
+      "name": "iShares U.S. Treasury Bond ETF",
+      "price": 22.80,
+      "change": -0.05,
+      "percent_change": -0.22,
+      "volume": 7654321
+    },
+    {
+      "symbol": "MUB",
+      "name": "iShares National Muni Bond ETF",
+      "price": 107.20,
+      "change": 0.10,
+      "percent_change": 0.09,
+      "volume": 3456789
+    },
+    {
+      "symbol": "SHY",
+      "name": "iShares 1-3 Year Treasury Bond ETF",
+      "price": 81.95,
+      "change": -0.03,
+      "percent_change": -0.04,
+      "volume": 2345678
+    }
+  ],
+  "trends": {
+    "market_summary": "Moderate volatility with mixed performance across sectors",
+    "current_sentiment_score": 0.3,
+    "interest_rate_trend": "Stable with potential for modest decrease in coming months",
+    "inflation_outlook": "Gradually decreasing, expected to stabilize around 2.5% annually",
+    "economic_indicators": {
+      "gdp_growth": "2.2% annual rate",
+      "unemployment": "3.8%",
+      "consumer_confidence": "moderate and improving"
+    },
+    "sector_performance": {
+      "technology": "moderate growth with some valuation concerns",
+      "healthcare": "stable with defensive characteristics",
+      "financials": "mixed performance, sensitive to interest rate changes",
+      "consumer_staples": "reliable but modest growth",
+      "energy": "volatile with increasing focus on renewables",
+      "utilities": "defensive but facing regulatory challenges"
+    }
+  }
+}
