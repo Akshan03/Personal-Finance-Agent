@@ -43,3 +43,26 @@ def get_groq_config(model_name: str = None, temperature: float = 0.1) -> LLMConf
         temperature=temperature,
         config_list=config_list
     )
+
+def get_agent_config(model_name: str = None, temperature: float = 0.1) -> Dict[str, Any]:
+    """
+    Returns a complete configuration for AutoGen agents with Docker disabled
+    
+    Args:
+        model_name: The name of the model to use (defaults to settings)
+        temperature: The temperature setting for the model (default: 0.1)
+        
+    Returns:
+        Dictionary with complete AutoGen configuration
+    """
+    # Get base LLM configuration
+    llm_config = get_groq_config(model_name, temperature).dict()
+    
+    # Add code execution configuration with Docker disabled
+    llm_config["code_execution_config"] = {
+        "use_docker": False,  # Disable Docker requirement
+        "last_n_messages": 2,  # Process last 2 messages for code execution
+        "work_dir": "./agent_workspace",  # Working directory for code execution
+    }
+    
+    return llm_config

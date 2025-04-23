@@ -5,7 +5,7 @@ import numpy as np
 from datetime import datetime, timedelta
 
 from app.models.transaction import Transaction, TransactionCategory
-from app.utils.llm_config import get_groq_config
+from app.utils.llm_config import get_groq_config, get_agent_config
 
 # Configuration for the fraud detection agent
 FRAUD_AGENT_CONFIG = {
@@ -19,8 +19,8 @@ class FraudDetectionAgent:
     
     def __init__(self, model_config=None):
         """Initialize the fraud detection agent with optional model configuration."""
-        # Use Groq configuration with low temperature for more deterministic fraud detection
-        config = model_config or get_groq_config(temperature=0.1).dict()
+        # Use agent configuration with Docker disabled and low temperature for more deterministic fraud detection
+        config = model_config or get_agent_config(temperature=0.1)
         
         # Create the Autogen assistant agent
         self.agent = autogen.AssistantAgent(
@@ -33,7 +33,8 @@ class FraudDetectionAgent:
         self.user_proxy = autogen.UserProxyAgent(
             name="Finance System",
             is_termination_msg=lambda x: "FRAUD_ANALYSIS_COMPLETE" in x.get("content", ""),
-            human_input_mode="NEVER"  # No human input needed, system-to-system communication
+            human_input_mode="NEVER",  # No human input needed, system-to-system communication
+            code_execution_config={"use_docker": False}  # Explicitly disable Docker requirement
         )
     
     def _build_system_message(self) -> str:

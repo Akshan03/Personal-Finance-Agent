@@ -39,4 +39,3 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     """Schema for data encoded within the JWT token."""
     email: Optional[str] = None
-    user_id: Optional[str] = None

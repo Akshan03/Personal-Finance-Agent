@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from app.models.portfolio import Portfolio
 from app.services import market_service
-from app.utils.llm_config import get_groq_config
+from app.utils.llm_config import get_groq_config, get_agent_config
 
 # Configuration for the investment advisor agent
 INVESTMENT_AGENT_CONFIG = {
@@ -20,8 +20,8 @@ class InvestmentAdvisorAgent:
     
     def __init__(self, model_config=None):
         """Initialize the investment advisor agent with optional model configuration."""
-        # Use Groq configuration with low temperature for more conservative investment advice
-        config = model_config or get_groq_config(temperature=0.1).dict()
+        # Use agent configuration with Docker disabled and low temperature for more conservative investment advice
+        config = model_config or get_agent_config(temperature=0.1)
         
         # Create the Autogen assistant agent
         self.agent = autogen.AssistantAgent(
@@ -34,7 +34,8 @@ class InvestmentAdvisorAgent:
         self.user_proxy = autogen.UserProxyAgent(
             name="Finance System",
             is_termination_msg=lambda x: "INVESTMENT_ADVICE_COMPLETE" in x.get("content", ""),
-            human_input_mode="NEVER"  # No human input needed for system-to-system communication
+            human_input_mode="NEVER",  # No human input needed for system-to-system communication
+            code_execution_config={"use_docker": False}  # Explicitly disable Docker requirement
         )
     
     def _build_system_message(self) -> str:

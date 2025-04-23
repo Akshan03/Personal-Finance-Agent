@@ -300,5 +300,7 @@ class AgentOrchestrator:
                     txn["reason"] = f"[Translated to {self.language}] {txn['reason']}"
         return results
 
-# Create a global instance for easy import
-orchestrator = AgentOrchestrator()
+# Create a factory function to get the orchestrator on demand
+def get_orchestrator():
+    """Returns a singleton instance of the AgentOrchestrator."""
+    return AgentOrchestrator()

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Optional, Any
 from datetime import datetime
 from app.models.transaction import TransactionCategory # Import Enum from model
@@ -11,6 +11,14 @@ class TransactionBase(BaseModel):
     category: TransactionCategory
     description: Optional[str] = None
     timestamp: Optional[datetime] = None
+    
+    @field_validator('category', mode='before')
+    @classmethod
+    def normalize_category(cls, value):
+        """Convert category to lowercase to make it case-insensitive."""
+        if isinstance(value, str):
+            return value.lower()
+        return value
 
 # --- Schemas for Creation/Input --- #
 

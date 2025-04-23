@@ -47,6 +47,8 @@ async def login_for_access_token(
 @router.get("/users/me", response_model=user_schema.User)
 async def read_users_me(current_user = Depends(get_current_user)):
     """Gets the current authenticated user's details."""
-    # The get_current_user dependency already fetches and returns the user model
-    # FastAPI handles the conversion to the response_model (user_schema.User)
-    return current_user
+    # Convert the user model to a dict and ensure ID is a string
+    user_dict = current_user.model_dump()
+    if 'id' not in user_dict and hasattr(current_user, 'id'):
+        user_dict['id'] = str(current_user.id)
+    return user_dict

@@ -31,6 +31,10 @@ ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 # OAuth2 scheme definition (will be used in API dependencies)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
+def create_access_token_expiration() -> timedelta:
+    """Creates a timedelta for access token expiration."""
+    return timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """Creates a JWT access token."""
     to_encode = data.copy()
@@ -46,12 +50,11 @@ def verify_token(token: str, credentials_exception: HTTPException) -> TokenData:
     """Verifies a JWT token and returns the payload (TokenData)."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: Optional[int] = payload.get("sub") # Assuming 'sub' holds the user_id
-        email: Optional[str] = payload.get("email")
+        email: Optional[str] = payload.get("sub")  # 'sub' holds the email in our implementation
 
-        if user_id is None or email is None:
+        if email is None:
             raise credentials_exception
-        token_data = TokenData(user_id=user_id, email=email)
+        token_data = TokenData(email=email)
     except JWTError:
         raise credentials_exception
     return token_data

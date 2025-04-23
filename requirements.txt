@@ -17,5 +17,6 @@ pytest==8.1.1
 httpx==0.27.0
 langchain==0.1.16 # Added for potential LangGraph use
 langgraph==0.0.37 # Added for potential LangGraph use
+email-validator>=1.0.0
 
 # Note: Ensure you have a compatible CUDA version if using GPU with torch/transformers
