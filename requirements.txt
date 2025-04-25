@@ -2,7 +2,6 @@ fastapi[all]
 uvicorn[standard]
 motor
 pymongo
-bson
 beanie
 pydantic-settings
 python-dotenv
