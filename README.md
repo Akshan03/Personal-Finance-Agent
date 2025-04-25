@@ -1,8 +1,8 @@
 # Personal Finance Assistant Agent Swarm
 
-<video src="demo-video.mp4" controls width="600" style="display:block;margin-bottom:16px;">
-  Your browser does not support the video tag.
-</video>
+[![Demo Video – Click to Watch](https://img.icons8.com/color/452/google-drive--v2.png)](https://drive.google.com/file/d/1Cp9JF77W_cyXIAy4c8y_rEmOiEJz7Y33/view?usp=sharing)
+
+▶️ [Watch the demo video on Google Drive](https://drive.google.com/file/d/1Cp9JF77W_cyXIAy4c8y_rEmOiEJz7Y33/view?usp=sharing)
 
 A multi-agent AI system to help users manage personal finances, powered by generative AI technology. This system includes three specialized agents: Budget Planner, Investment Advisor, and Fraud Detector. The agents work together to provide comprehensive financial guidance in simple, easy-to-understand terms.
 
