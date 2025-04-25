@@ -1,10 +1,13 @@
 export interface PortfolioItem {
   id?: string;
-  symbol: string;
-  shares: number;
+  asset_name: string;      // Changed from symbol to match backend
+  asset_type: string;      // Added to match backend (stock, bond, crypto, etc.)
+  quantity: number;        // Changed from shares to match backend
   purchase_price: number;
   purchase_date?: string;
   user_id?: string;
+  current_value?: number;  // Added to match backend schema
+  last_updated?: string;   // Added to match backend schema
 }
 
 export interface StockPrice {

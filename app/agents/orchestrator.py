@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 import autogen
 
 # Import the agent implementations
-from .budget_agent import BudgetPlannerAgent
+from .budget_agent import BudgetPlanningAgent
 from .investment_agent import InvestmentAdvisorAgent
 from .fraud_agent import FraudDetectionAgent
 
@@ -26,7 +26,7 @@ class AgentOrchestrator:
             enable_multilingual: Whether to enable multilingual explanations
             language: The target language code for explanations (if multilingual is enabled)
         """
-        self.budget_agent = BudgetPlannerAgent()
+        self.budget_agent = BudgetPlanningAgent()
         self.investment_agent = InvestmentAdvisorAgent()
         self.fraud_agent = FraudDetectionAgent()
         self.enable_multilingual = enable_multilingual

@@ -298,51 +298,63 @@ async def get_low_risk_investment_options() -> List[Dict[str, Any]]:
     # Generate recommendations with dynamic expected returns
     recommendations = [
         {
+            "symbol": "IEF",
             "name": "Treasury Bond ETF", 
             "type": "Bond Fund", 
-            "expected_return": f"{2.5 + bond_adjustment:.1f}%", 
+            "price": 98.75 + (bond_adjustment * 2),
+            "growth_potential": f"{2.5 + bond_adjustment:.1f}%", 
             "risk_level": "Low",
-            "description": "Tracks U.S. Treasury bonds with 7-10 year maturities"
+            "recommendation_reason": "Tracks U.S. Treasury bonds with 7-10 year maturities, providing stability and government backing."
         },
         {
+            "symbol": "VCSH",
             "name": "Short-Term Corporate Bond Fund", 
             "type": "Bond Fund", 
-            "expected_return": f"{3.0 + bond_adjustment:.1f}%", 
+            "price": 78.50 + (bond_adjustment * 3),
+            "growth_potential": f"{3.0 + bond_adjustment:.1f}%", 
             "risk_level": "Low",
-            "description": "Investment-grade corporate bonds with 1-5 year duration"
+            "recommendation_reason": "Investment-grade corporate bonds with 1-5 year duration, balancing yield with lower interest rate risk."
         },
         {
+            "symbol": "HYSA",
             "name": "High-Yield Savings Account", 
             "type": "Cash Equivalent", 
-            "expected_return": f"{1.8 + bond_adjustment/2:.1f}%", 
+            "price": 100.00, # Stable price as it's a cash equivalent
+            "growth_potential": f"{1.8 + bond_adjustment/2:.1f}%", 
             "risk_level": "Very Low",
-            "description": "FDIC-insured savings with competitive interest rates"
+            "recommendation_reason": "FDIC-insured savings with competitive interest rates, providing maximum safety for short-term needs."
         },
         {
+            "symbol": "NOBL",
             "name": "Dividend Aristocrats ETF", 
             "type": "Stock Fund", 
-            "expected_return": f"{4.0 + stock_adjustment:.1f}%", 
+            "price": 89.25 + (stock_adjustment * 4),
+            "growth_potential": f"{4.0 + stock_adjustment:.1f}%", 
             "risk_level": "Low-Medium",
-            "description": "Companies with 25+ years of dividend increases"
+            "recommendation_reason": "Companies with 25+ years of dividend increases, offering income potential with moderate growth."
         }
     ]
     
     # Add market-specific recommendations based on current conditions
     if sentiment < -0.3:  # Bearish market
         recommendations.append({
+            "symbol": "TIP",
             "name": "Treasury Inflation-Protected Securities (TIPS)", 
             "type": "Government Bond", 
-            "expected_return": f"{2.2 + bond_adjustment:.1f}%", 
+            "price": 110.25 + (bond_adjustment * 2),
+            "growth_potential": f"{2.2 + bond_adjustment:.1f}%", 
             "risk_level": "Low",
-            "description": "Provides protection against inflation with government backing"
+            "recommendation_reason": "Provides protection against inflation with government backing, ideal for bearish market conditions."
         })
     elif sentiment > 0.3:  # Bullish market
         recommendations.append({
+            "symbol": "SCHD",
             "name": "Blue Chip Dividend Stock Fund", 
             "type": "Stock Fund", 
-            "expected_return": f"{4.5 + stock_adjustment:.1f}%", 
+            "price": 76.50 + (stock_adjustment * 5),
+            "growth_potential": f"{4.5 + stock_adjustment:.1f}%", 
             "risk_level": "Medium",
-            "description": "Large stable companies with history of dividend payments"
+            "recommendation_reason": "Large stable companies with history of dividend payments, positioned to benefit from bullish market trends."
         })
     
     # Update cache
@@ -441,6 +453,10 @@ async def evaluate_stock_holding(stock_name: str) -> Dict[str, Any]:
 
 async def analyze_portfolio_composition(portfolio_items: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Analyze a user's portfolio to determine asset allocation and diversification needs."""
+    # Get market trends to have sentiment data available - fixed to not use await
+    market_trends = get_market_trends()
+    sentiment = market_trends.get('current_sentiment_score', 0)
+    
     if not portfolio_items:
         return {
             "diversification_score": 0,
@@ -474,70 +490,95 @@ async def analyze_portfolio_composition(portfolio_items: List[Dict[str, Any]]) -
         "HD": "consumer_discretionary",
         "BAC": "financials",
         "XOM": "energy",
-        "AVGO": "technology",
-        "MA": "financials",
-        "DIS": "communication_services"
-    }
-    
-    # Analyze each portfolio item
+    } # Added missing closing brace for sector_mapping
     for item in portfolio_items:
-        asset_name = item.get("asset_name", "").strip()
-        asset_type = item.get("asset_type", "").lower()
+        purchase_price = float(item.get("purchase_price", 0))
         quantity = float(item.get("quantity", 0))
-        current_value = float(item.get("current_value", 0))
-        
-        if current_value == 0 and "purchase_price" in item:
-            # If current value not set, use purchase price
-            current_value = float(item["purchase_price"]) * quantity
-        
-        # Accumulate by asset type
-        if asset_type not in asset_types:
-            asset_types[asset_type] = 0
-        asset_types[asset_type] += current_value
-        
-        # Track individual stocks for concentration analysis
-        if asset_type == "stock":
-            stock_symbol = asset_name.split(" ")[0].upper()  # Crude extraction of ticker
-            individual_stocks[asset_name] = current_value
-            
-            # Assign to sector if known
-            sector = "unknown"
-            for ticker, sector_name in sector_mapping.items():
-                if ticker in stock_symbol or ticker in asset_name.upper():
-                    sector = sector_name
-                    break
-            
-            if sector not in sectors:
-                sectors[sector] = 0
-            sectors[sector] += current_value
-        
+        current_value = float(item.get("current_value", purchase_price * quantity))
         total_value += current_value
-    
-    # Calculate percentages if total value > 0
+
+    # Analyze asset types
+    asset_types = set()
     asset_allocation = {}
+    for item in portfolio_items:
+        asset_type = item.get("asset_type", "").lower()
+        asset_types.add(asset_type)
+
+        purchase_price = float(item.get("purchase_price", 0))
+        quantity = float(item.get("quantity", 0))
+        current_value = float(item.get("current_value", purchase_price * quantity))
+
+        if asset_type not in asset_allocation:
+            asset_allocation[asset_type] = 0
+        asset_allocation[asset_type] += current_value
+
+    # Convert to percentages
+    for asset_type in asset_allocation:
+        if total_value > 0:
+            asset_allocation[asset_type] = (asset_allocation[asset_type] / total_value) * 100
+
+    # Analyze sector exposure (simplified approximation)
+    # In a real system, we would use market data to determine sector exposure
+    sectors = set()
     sector_exposure = {}
+    for item in portfolio_items:
+        asset_name = item.get("asset_name", "").lower()
+        sector = "unknown"
+
+        # Simple sector mapping based on asset name
+        if any(tech in asset_name for tech in ["tech", "software", "apple", "microsoft", "google", "meta", "amazon"]):
+            sector = "technology"
+        elif any(health in asset_name for health in ["health", "medical", "pharma", "drug", "biotech"]):
+            sector = "healthcare"
+        elif any(fin in asset_name for fin in ["bank", "financial", "visa", "mastercard", "paypal"]):
+            sector = "financials"
+        elif any(energy in asset_name for energy in ["oil", "gas", "energy", "solar", "renewable"]):
+            sector = "energy"
+        elif any(consumer in asset_name for consumer in ["consumer", "retail", "walmart", "target", "coca", "pepsi", "food"]):
+            sector = "consumer_staples"
+
+        # Add to sector exposure
+        sectors.add(sector)
+        purchase_price = float(item.get("purchase_price", 0))
+        quantity = float(item.get("quantity", 0))
+        current_value = float(item.get("current_value", purchase_price * quantity))
+
+        if sector not in sector_exposure:
+            sector_exposure[sector] = 0
+        sector_exposure[sector] += current_value
+
+    # Convert to percentages
+    for sector in sector_exposure:
+        if total_value > 0:
+            sector_exposure[sector] = (sector_exposure[sector] / total_value) * 100
+
+    # Calculate diversification score (0-100)
     diversification_score = 0
-    
-    if total_value > 0:
-        asset_allocation = {asset: (value/total_value)*100 for asset, value in asset_types.items()}
-        sector_exposure = {sector: (value/total_value)*100 for sector, value in sectors.items()}
-        
-        # Calculate simple diversification score (0-100)
-        # Based on: number of asset types, sector spread, and individual holding concentration
-        type_score = min(len(asset_types) * 20, 40)  # Max 40 points for asset types
-        sector_score = min(len(sectors) * 10, 30)    # Max 30 points for sectors
-        
-        # Concentration score - lower is better for individual stocks
-        concentration_penalty = 0
-        for stock, value in individual_stocks.items():
-            stock_percent = (value/total_value) * 100
-            if stock_percent > 10:  # Penalty for >10% in single stock
-                concentration_penalty += (stock_percent - 10) / 2
-        
-        # Calculate final score
-        diversification_score = type_score + sector_score - min(concentration_penalty, 30)
-        diversification_score = max(0, min(diversification_score, 100))  # Clamp to 0-100
-    
+
+    # Points for different asset types
+    asset_type_points = min(len(asset_types) * 15, 40)  # Up to 40 points for asset types
+    diversification_score += asset_type_points
+
+    # Points for number of holdings
+    num_holdings_points = min(len(portfolio_items) * 10, 30)  # Up to 30 points for multiple holdings
+    diversification_score += num_holdings_points
+
+    # Points for sector diversity
+    sector_points = min(len(sectors - {"unknown"}) * 10, 30)  # Up to 30 points for sectors
+    diversification_score += sector_points
+
+    # Penalty for concentration
+    max_concentration = 0
+    if portfolio_items and total_value > 0:
+        # Correct parenthesis placement for float() within the generator expression
+        max_concentration = max((float(item.get("current_value", float(item.get("purchase_price", 0)) * float(item.get("quantity", 0)))) / total_value) for item in portfolio_items)
+        if max_concentration > 0.5:  # More than 50% in one asset
+            diversification_score -= 30  # Significant penalty
+        elif max_concentration > 0.3:  # More than 30% in one asset
+            diversification_score -= 15  # Moderate penalty
+
+    diversification_score = max(0, min(diversification_score, 100))  # Clamp to 0-100
+
     # Determine gaps in the portfolio
     gaps = []
     if "stock" not in asset_types or asset_allocation.get("stock", 0) < 20:
@@ -548,70 +589,43 @@ async def analyze_portfolio_composition(portfolio_items: List[Dict[str, Any]]) -
         gaps.append("real estate")
     if len(sectors) < 3:
         gaps.append("sector diversification")
-    
-    return {
-        "total_value": total_value,
-        "diversification_score": diversification_score,
-        "asset_allocation": asset_allocation,
-        "sector_exposure": sector_exposure,
-        "gaps": gaps
-    }
 
-async def get_portfolio_based_recommendations(portfolio_items: List[Dict[str, Any]], risk_tolerance: str) -> List[Dict[str, Any]]:
-    """Generate investment recommendations based on portfolio analysis."""
-    # Get market trends
-    trends = await get_market_trends()
-    sentiment = trends.get('current_sentiment_score', 0)
-    
-    # Analyze the portfolio
-    analysis = await analyze_portfolio_composition(portfolio_items)
-    diversification_score = analysis.get("diversification_score", 0)
-    gaps = analysis.get("gaps", [])
-    sector_exposure = analysis.get("sector_exposure", {})
-    
-    # Base recommendations on gaps and portfolio analysis
+    # Generate recommendations based on gaps
     recommendations = []
-    
-    # Recommend based on portfolio gaps
-    if "fixed income" in gaps:
-        bond_adjustment = random.uniform(-0.3, 0.3)
-        recommendations.append({
-            "name": "Total Bond Market ETF",
-            "type": "Bond Fund",
-            "expected_return": f"{3.2 + bond_adjustment:.1f}%",
-            "risk_level": "Low",
-            "description": "Broad exposure to US investment-grade bonds",
-            "recommendation_reason": "Your portfolio lacks fixed income exposure for stability"
-        })
-    
     if "stock exposure" in gaps:
-        stock_adjustment = sentiment * 0.5
         recommendations.append({
             "name": "Total Stock Market Index Fund",
             "type": "Stock Fund",
-            "expected_return": f"{6.0 + stock_adjustment:.1f}%",
+            "expected_return": "6.0%",
             "risk_level": "Medium",
-            "description": "Broad exposure to the entire U.S. equity market",
+            "description": "Broad exposure to the entire U.S. equity market with balanced risk/reward profile.",
             "recommendation_reason": "Adding broad market equity exposure would improve your portfolio"
         })
-    
+    if "fixed income" in gaps:
+        recommendations.append({
+            "name": "Short-Term Treasury Bond Fund",
+            "type": "Bond Fund",
+            "expected_return": "2.8%",
+            "risk_level": "Very Low",
+            "description": "Government-backed bonds with short duration and minimal interest rate risk.",
+            "recommendation_reason": "Provides stability aligned with your low risk preference"
+        })
     if "real estate" in gaps:
         recommendations.append({
-            "name": "REIT Index Fund",
-            "type": "Real Estate",
-            "expected_return": f"{5.5 + sentiment*0.4:.1f}%",
+            "name": "Real Estate Investment Trust (REIT) Index Fund",
+            "type": "Real Estate Fund",
+            "expected_return": "4.5%",
             "risk_level": "Medium",
-            "description": "Exposure to real estate investment trusts across various property sectors",
-            "recommendation_reason": "Adding real estate can improve diversification and provide income"
+            "description": "Exposure to real estate investment trusts (REITs) for diversification and income potential.",
+            "recommendation_reason": "Your portfolio would benefit from real estate exposure"
         })
-    
     if "sector diversification" in gaps:
         # Find underrepresented sectors
         low_exposure_sectors = []
         for sector in ["technology", "healthcare", "financials", "consumer_staples", "utilities", "energy"]:
             if sector not in sector_exposure or sector_exposure[sector] < 5:
                 low_exposure_sectors.append(sector)
-        
+
         if low_exposure_sectors:
             # Recommend sector funds for diversification
             sector_to_recommend = random.choice(low_exposure_sectors)
@@ -656,116 +670,167 @@ async def get_portfolio_based_recommendations(portfolio_items: List[Dict[str, An
             "name": "Three-Fund Core Portfolio",
             "type": "Portfolio Strategy",
             "expected_return": "Varies by allocation",
-            "risk_level": risk_tolerance.capitalize(),
+            "risk_level": "Medium",
             "description": "A simple portfolio of Total US Stock Market, International Stock, and Bond index funds",
             "recommendation_reason": "Your portfolio would benefit from a core diversified foundation"
         })
-    
-    # Add risk-specific recommendations
-    if risk_tolerance.lower() == "high" and diversification_score > 50:
-        recommendations.append({
-            "name": "Emerging Markets ETF",
-            "type": "Stock Fund",
-            "expected_return": f"{8.5 + sentiment*1.5:.1f}%",
-            "risk_level": "High",
-            "description": "Exposure to developing economies with high growth potential",
-            "recommendation_reason": "Aligns with your high risk tolerance for potentially higher returns"
-        })
-    
-    if risk_tolerance.lower() == "low" and ("bond" not in analysis.get("asset_allocation", {})):
-        recommendations.append({
-            "name": "Short-Term Treasury Bond Fund",
-            "type": "Bond Fund",
-            "expected_return": f"{2.8 + (sentiment*0.2):.1f}%",
-            "risk_level": "Very Low",
-            "description": "Government-backed bonds with short duration and minimal interest rate risk",
-            "recommendation_reason": "Provides stability aligned with your low risk preference"
-        })
-    
-    # Ensure we have at least 3 recommendations
-    if len(recommendations) < 3:
-        # Add some general good recommendations based on risk tolerance
-        if risk_tolerance.lower() == "low":
-            additional = await get_low_risk_investment_options()
-        else:
-            additional = await get_personalized_investment_recommendations_by_risk(risk_tolerance)
-        
-        # Add recommendations we don't already have
-        for item in additional:
-            if len(recommendations) >= 5:  # Cap at 5 recommendations
-                break
-                
-            # Check if we already have this recommendation
-            if not any(r["name"] == item["name"] for r in recommendations):
-                # Add the recommendation reason
-                item["recommendation_reason"] = "Generally suitable investment for your risk profile"
-                recommendations.append(item)
-    
-    return recommendations[:5]  # Limit to 5 recommendations
 
-async def get_personalized_investment_recommendations_by_risk(risk_tolerance: str = "medium") -> List[Dict[str, Any]]:
-    """Get generic risk-based investment recommendations."""
-    # Get market trends
-    trends = await get_market_trends()
-    sentiment = trends.get('current_sentiment_score', 0)
-    
-    # Generate medium-risk options
+    # Generate medium-risk options (Ensuring proper separation)
     medium_risk = [
         {
+            "symbol": "VTI",
             "name": "Total Stock Market Index Fund", 
             "type": "Stock Fund", 
-            "expected_return": f"{6.0 + sentiment:.1f}%", 
+            "price": 245.50 + (sentiment * 5),
+            "growth_potential": f"{6.0 + sentiment:.1f}%", 
             "risk_level": "Medium",
-            "description": "Broad exposure to the entire U.S. equity market"
+            "recommendation_reason": "Broad exposure to the entire U.S. equity market with balanced risk/reward profile."
         },
         {
+            "symbol": "VUG",
             "name": "Growth Stock ETF", 
             "type": "Stock Fund", 
-            "expected_return": f"{7.5 + sentiment*1.2:.1f}%", 
+            "price": 310.75 + (sentiment * 7),
+            "growth_potential": f"{7.5 + sentiment*1.2:.1f}%", 
             "risk_level": "Medium",
-            "description": "Companies with above-average growth potential"
+            "recommendation_reason": "Companies with above-average growth potential, suitable for medium-term investors."
         },
         {
+            "symbol": "VEA",
             "name": "International Developed Markets Fund", 
             "type": "Stock Fund", 
-            "expected_return": f"{5.5 + sentiment:.1f}%", 
+            "price": 185.25 + (sentiment * 4),
+            "growth_potential": f"{5.5 + sentiment:.1f}%", 
             "risk_level": "Medium",
-            "description": "Exposure to established international markets"
+            "recommendation_reason": "Exposure to established international markets for portfolio diversification."
         }
     ]
     
     # Generate high-risk options
     high_risk = [
         {
+            "symbol": "VBK",
             "name": "Small Cap Growth Fund", 
             "type": "Stock Fund", 
-            "expected_return": f"{9.0 + sentiment*1.5:.1f}%", 
+            "price": 178.50 + (sentiment * 8),
+            "growth_potential": f"{9.0 + sentiment*1.5:.1f}%", 
             "risk_level": "High",
-            "description": "Small companies with high growth potential"
+            "recommendation_reason": "Small companies with high growth potential, suitable for aggressive investors."
         },
         {
+            "symbol": "VWO",
             "name": "Emerging Markets ETF", 
             "type": "Stock Fund", 
-            "expected_return": f"{8.5 + sentiment*1.5:.1f}%", 
+            "price": 125.75 + (sentiment * 6),
+            "growth_potential": f"{8.5 + sentiment*1.5:.1f}%", 
             "risk_level": "High",
-            "description": "Exposure to developing economies with high growth potential"
+            "recommendation_reason": "Exposure to developing economies with high growth potential and emerging opportunities."
         },
         {
+            "symbol": "VGT",
             "name": "Technology Sector Fund", 
             "type": "Sector Fund", 
-            "expected_return": f"{10.0 + sentiment*2:.1f}%", 
+            "price": 420.25 + (sentiment * 12),
+            "growth_potential": f"{10.0 + sentiment*2:.1f}%", 
             "risk_level": "High",
-            "description": "Focused on technology companies with innovation potential"
+            "recommendation_reason": "Focused on technology companies with significant innovation potential and disruption capability."
         }
     ]
     
-    risk_levels = {
-        "low": await get_low_risk_investment_options(),
-        "medium": medium_risk,
-        "high": high_risk
+    # Return the analyzed portfolio composition data instead of recommendations
+    return {
+        "total_value": total_value,
+        "diversification_score": diversification_score,
+        "asset_allocation": asset_allocation,
+        "sector_exposure": sector_exposure,
+        "gaps": gaps,
+        "recommendations": recommendations
     }
+
+async def get_personalized_investment_recommendations_by_risk(risk_tolerance: str = "medium") -> List[Dict[str, Any]]:
+    """Get investment recommendations based on user's risk tolerance."""
+    # Normalize risk tolerance
+    risk_tolerance = risk_tolerance.lower() if risk_tolerance else "medium"
     
-    return risk_levels.get(risk_tolerance.lower(), medium_risk)
+    # Get recommendations based on risk level
+    if risk_tolerance == "low":
+        return await get_low_risk_investment_options()
+    elif risk_tolerance == "high":
+        # For high risk tolerance, return growth-focused options
+        return [
+            {
+                "symbol": "ARKK",
+                "name": "ARK Innovation ETF", 
+                "type": "Stock Fund", 
+                "price": 125.75,
+                "growth_potential": "8-15%", 
+                "risk_level": "High",
+                "recommendation_reason": "Focused on disruptive innovation across multiple sectors."
+            },
+            {
+                "symbol": "QQQ",
+                "name": "Invesco QQQ Trust", 
+                "type": "Stock Fund", 
+                "price": 431.80,
+                "growth_potential": "7-12%", 
+                "risk_level": "Medium-High",
+                "recommendation_reason": "Tracks the tech-heavy Nasdaq-100 Index for growth exposure."
+            },
+            {
+                "symbol": "QQQJ",
+                "name": "Invesco Nasdaq Next Gen 100 ETF", 
+                "type": "Stock Fund", 
+                "price": 27.95,
+                "growth_potential": "8-14%", 
+                "risk_level": "High",
+                "recommendation_reason": "Focuses on mid-cap companies poised for potential future inclusion in the Nasdaq-100."
+            }
+        ]
+    else:  # medium risk (default)
+        # Balanced portfolio options
+        return [
+            {
+                "symbol": "VTI",
+                "name": "Vanguard Total Stock Market ETF", 
+                "type": "Stock Fund", 
+                "price": 238.60,
+                "growth_potential": "6-10%", 
+                "risk_level": "Medium",
+                "recommendation_reason": "Broad market exposure across all US stocks."
+            },
+            {
+                "symbol": "VXUS",
+                "name": "Vanguard Total International Stock ETF", 
+                "type": "Stock Fund", 
+                "price": 57.85,
+                "growth_potential": "5-9%", 
+                "risk_level": "Medium",
+                "recommendation_reason": "International diversification across developed and emerging markets."
+            },
+            {
+                "symbol": "SCHD",
+                "name": "Schwab US Dividend Equity ETF", 
+                "type": "Stock Fund", 
+                "price": 76.50,
+                "growth_potential": "4-8%", 
+                "risk_level": "Medium",
+                "recommendation_reason": "Quality dividend stocks with growth potential."
+            }
+        ]
+
+async def get_personalized_investment_recommendations(user_id: str, risk_tolerance: str, portfolio_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Get personalized investment recommendations based on user portfolio and risk tolerance."""
+    # If we have a portfolio, analyze it
+    if portfolio_items:
+        portfolio_analysis = await analyze_portfolio_composition(portfolio_items)
+        recommendations = portfolio_analysis.get('recommendations', [])
+        
+        # If we have recommendations from portfolio analysis, return them
+        if recommendations:
+            return recommendations
+    
+    # Fallback to risk-based recommendations if no portfolio or no recommendations
+    return await get_personalized_investment_recommendations_by_risk(risk_tolerance)
 
 async def analyze_portfolio_quality(portfolio_items: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Analyze the quality of holdings in a portfolio and provide an assessment."""
@@ -822,14 +887,45 @@ async def analyze_portfolio_quality(portfolio_items: List[Dict[str, Any]]) -> Di
     diversification_score = composition.get("diversification_score", 0)
     gaps = composition.get("gaps", [])
     
-    # Determine overall portfolio rating
-    overall_rating = "Needs Improvement"
+    # Determine overall portfolio rating (as a numeric value from 1-5)
+    # The frontend expects a number it can format with toFixed()
+    overall_rating = 2.0  # Default: Needs Improvement
     if diversification_score >= 80:
-        overall_rating = "Excellent"
+        overall_rating = 5.0  # Excellent
     elif diversification_score >= 60:
-        overall_rating = "Good"
+        overall_rating = 4.0  # Good
     elif diversification_score >= 40:
-        overall_rating = "Fair"
+        overall_rating = 3.0  # Fair
+        
+    # Store the text rating separately
+    rating_text = "Needs Improvement"
+    if diversification_score >= 80:
+        rating_text = "Excellent"
+    elif diversification_score >= 60:
+        rating_text = "Good"
+    elif diversification_score >= 40:
+        rating_text = "Fair"
+        
+    # Convert holdings_analysis from array to object keyed by asset_name
+    # The frontend expects an object it can iterate with Object.entries()
+    # It also expects each analysis to have strengths, risks arrays and a recommendation string
+    holdings_analysis_obj = {}
+    for holding in holdings_analysis:
+        asset_name = holding.get("asset_name")
+        if asset_name:
+            # Extract data from our current structure
+            evaluation = holding.get("evaluation", {})
+            performance = holding.get("performance", {})
+            
+            # Convert to the structure expected by the frontend
+            holdings_analysis_obj[asset_name] = {
+                "rating": 4 if evaluation.get("rating") == "Strong" else 
+                          3 if evaluation.get("rating") == "Good" else 
+                          2 if evaluation.get("rating") == "Standard" else 1,
+                "strengths": [evaluation.get("strength", "No data available")],
+                "risks": [evaluation.get("risk", "No specific risks identified")],
+                "recommendation": "Hold" if evaluation.get("rating") in ["Strong", "Good"] else "Research Further"
+            }
     
     # Generate human-readable assessment
     assessment_parts = []
@@ -856,10 +952,27 @@ async def analyze_portfolio_quality(portfolio_items: List[Dict[str, Any]]) -> Di
     # Overall assessment
     portfolio_assessment = " ".join(assessment_parts)
     
+    # Define improvement opportunities
+    improvement_opportunities = []
+    if diversification_score < 60:
+        improvement_opportunities.append("Increase diversification across asset classes")
+    if gaps:
+        improvement_opportunities.append(f"Add exposure to: {', '.join(gaps)}")
+    if diversification_score < 40:
+        improvement_opportunities.append("Consider adding a core ETF position")
+    
+    # Structure the response to match frontend expectations
     return {
-        "portfolio_assessment": portfolio_assessment,
-        "holdings_analysis": holdings_analysis,
+        "portfolio_assessment": {
+            "overall_assessment": portfolio_assessment,
+            "improvement_opportunities": improvement_opportunities,
+            "risk_level": rating_text,
+            "growth_potential": "Medium",
+            "diversification": f"{diversification_score}/100"
+        },
+        "holdings_analysis": holdings_analysis_obj,  # Object instead of array
         "overall_rating": overall_rating,
+        "rating_text": rating_text,
         "diversification_score": diversification_score
     }
 
@@ -871,3 +984,52 @@ async def get_personalized_investment_recommendations(user_id: str, risk_toleran
     
     # Generate truly personalized recommendations based on portfolio analysis
     return await get_portfolio_based_recommendations(portfolio_items, risk_tolerance)
+
+def get_market_trends() -> Dict[str, Any]:
+    """Get current market trends data for major indices.
+    
+    Returns a dictionary with trends for major stock market indices.
+    Uses cached data if available and not expired.
+    """
+    # Check cache first
+    now = datetime.now()
+    
+    if (_market_cache['market_trends'] and _market_cache['last_updated'] and
+            (now - _market_cache['last_updated']).total_seconds() < CACHE_EXPIRATION):
+        return _market_cache['market_trends']
+    
+    # Prepare fallback data for major indices
+    default_market_trends = {
+        "trends": [
+            {
+                "index": "S&P 500",
+                "value": 5021.84,
+                "change_percent": 0.63,
+                "trend_direction": "up"
+            },
+            {
+                "index": "Dow Jones",
+                "value": 38239.97,
+                "change_percent": 0.32,
+                "trend_direction": "up"
+            },
+            {
+                "index": "NASDAQ",
+                "value": 15927.90,
+                "change_percent": 1.24,
+                "trend_direction": "up"
+            },
+            {
+                "index": "Russell 2000",
+                "value": 2042.47,
+                "change_percent": -0.28,
+                "trend_direction": "down"
+            }
+        ]
+    }
+    
+    # Update cache with the fallback data
+    _market_cache['market_trends'] = default_market_trends
+    _market_cache['last_updated'] = now
+    
+    return default_market_trends

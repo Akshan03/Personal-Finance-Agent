@@ -4,9 +4,13 @@ from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from bson import ObjectId
 import json
+import os
+
+# Disable Autogen Docker requirement globally
+os.environ["AUTOGEN_USE_DOCKER"] = "0"
 
 from app.config import settings
-from app.api.routes import auth, budget, investment, fraud
+from app.api.routes import auth, budget, investment, fraud, transactions, frontend_data
 from app.models import database # Import database to access MongoDB connections
 
 # MongoDB doesn't need tables/schemas created beforehand
@@ -79,6 +83,8 @@ app.include_router(auth.router, prefix=f"{api_prefix}/auth", tags=["Authenticati
 app.include_router(budget.router, prefix=f"{api_prefix}/budget", tags=["Budget Planning"])
 app.include_router(investment.router, prefix=f"{api_prefix}/investment", tags=["Investment Advice"])
 app.include_router(fraud.router, prefix=f"{api_prefix}/fraud", tags=["Fraud Detection"])
+app.include_router(transactions.router, prefix=f"{api_prefix}/transactions", tags=["Transactions"])
+app.include_router(frontend_data.router, prefix=f"{api_prefix}", tags=["Frontend Data"])
 
 # --- Root Endpoint --- #
 @app.get("/", tags=["Root"])

@@ -14,9 +14,11 @@ const Investments: React.FC = () => {
 
   // Form state
   const [formData, setFormData] = useState<PortfolioItem>({
-    symbol: '',
-    shares: 0,
-    purchase_price: 0
+    asset_name: '',
+    asset_type: 'stock', // Default type
+    quantity: 0,
+    purchase_price: 0,
+    purchase_date: new Date().toISOString().split('T')[0]
   });
 
   useEffect(() => {
@@ -28,17 +30,34 @@ const Investments: React.FC = () => {
       setLoading(true);
       setError('');
       
-      // Fetch portfolio data
-      const portfolioData = await investmentService.getPortfolio();
-      setPortfolio(portfolioData.items || []);
+      try {
+        // Fetch portfolio data
+        const portfolioData = await investmentService.getPortfolio();
+        // Backend returns an array directly, not an object with items property
+        setPortfolio(Array.isArray(portfolioData) ? portfolioData : []);
+      } catch (portfolioError) {
+        console.error('Error fetching portfolio:', portfolioError);
+        setPortfolio([]);
+      }
       
-      // Fetch investment recommendations
-      const recommendationsData = await investmentService.getRecommendations();
-      setRecommendations(recommendationsData.recommendations || []);
+      try {
+        // Fetch investment recommendations
+        const recommendationsData = await investmentService.getRecommendations();
+        // Backend returns an array directly, not an object with recommendations property
+        setRecommendations(Array.isArray(recommendationsData) ? recommendationsData : []);
+      } catch (recError) {
+        console.error('Error fetching recommendations:', recError);
+        setRecommendations([]);
+      }
       
-      // Fetch portfolio quality assessment
-      const qualityData = await investmentService.getPortfolioQuality();
-      setPortfolioQuality(qualityData);
+      try {
+        // Fetch portfolio quality assessment
+        const qualityData = await investmentService.getPortfolioQuality();
+        setPortfolioQuality(qualityData);
+      } catch (qualityError) {
+        console.error('Error fetching portfolio quality:', qualityError);
+        setPortfolioQuality(null);
+      }
       
       setLoading(false);
     } catch (err) {
@@ -48,11 +67,14 @@ const Investments: React.FC = () => {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'symbol' ? value.toUpperCase() : parseFloat(value)
+      [name]: name === 'asset_name' ? value.toUpperCase() : 
+              name === 'asset_type' ? value :
+              name === 'purchase_date' ? value :
+              parseFloat(value)
     }));
   };
 
@@ -62,7 +84,13 @@ const Investments: React.FC = () => {
       await investmentService.addToPortfolio(formData);
       fetchData(); // Refresh data
       setShowAddForm(false);
-      setFormData({ symbol: '', shares: 0, purchase_price: 0 });
+      setFormData({ 
+        asset_name: '', 
+        asset_type: 'stock', 
+        quantity: 0, 
+        purchase_price: 0,
+        purchase_date: new Date().toISOString().split('T')[0]
+      });
     } catch (err) {
       console.error('Error adding investment:', err);
       setError('Failed to add investment. Please try again.');
@@ -100,18 +128,28 @@ const Investments: React.FC = () => {
   // Calculate portfolio value
   const calculatePortfolioValue = () => {
     return portfolio.reduce((total, item) => {
-      return total + (item.shares * item.purchase_price);
+      return total + (item.quantity * item.purchase_price);
     }, 0);
   };
 
-  if (loading && portfolio.length === 0) {
+  if (loading) {
     return (
       <div className="loading-container">
         <motion.div 
-          className="loader"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-        />
+          className="loading-indicator"
+          initial={{ opacity: 0.5 }}
+          animate={{ 
+            opacity: [0.5, 1, 0.5],
+            scale: [1, 1.05, 1] 
+          }}
+          transition={{ 
+            duration: 1.5, 
+            repeat: Infinity, 
+            ease: "easeInOut" 
+          }}
+        >
+          <div className="loading-pulse"></div>
+        </motion.div>
         <p>Loading investment data...</p>
       </div>
     );
@@ -186,12 +224,12 @@ const Investments: React.FC = () => {
           >
             <form onSubmit={handleSubmit} className="investment-form">
               <div className="form-group">
-                <label htmlFor="symbol">Stock Symbol</label>
+                <label htmlFor="asset_name">Asset Symbol/Name</label>
                 <input
                   type="text"
-                  id="symbol"
-                  name="symbol"
-                  value={formData.symbol}
+                  id="asset_name"
+                  name="asset_name"
+                  value={formData.asset_name}
                   onChange={handleInputChange}
                   placeholder="e.g., AAPL"
                   required
@@ -199,26 +237,57 @@ const Investments: React.FC = () => {
               </div>
               
               <div className="form-group">
-                <label htmlFor="shares">Number of Shares</label>
+                <label htmlFor="asset_type">Asset Type</label>
+                <select
+                  id="asset_type"
+                  name="asset_type"
+                  value={formData.asset_type}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="stock">Stock</option>
+                  <option value="bond">Bond</option>
+                  <option value="crypto">Cryptocurrency</option>
+                  <option value="etf">ETF</option>
+                  <option value="mutual_fund">Mutual Fund</option>
+                  <option value="real_estate">Real Estate</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="quantity">Quantity</label>
                 <input
                   type="number"
                   step="0.01"
-                  id="shares"
-                  name="shares"
-                  value={formData.shares}
+                  id="quantity"
+                  name="quantity"
+                  value={formData.quantity}
                   onChange={handleInputChange}
                   required
                 />
               </div>
               
               <div className="form-group">
-                <label htmlFor="purchase_price">Purchase Price per Share ($)</label>
+                <label htmlFor="purchase_price">Purchase Price per Unit ($)</label>
                 <input
                   type="number"
                   step="0.01"
                   id="purchase_price"
                   name="purchase_price"
                   value={formData.purchase_price}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="purchase_date">Purchase Date</label>
+                <input
+                  type="date"
+                  id="purchase_date"
+                  name="purchase_date"
+                  value={formData.purchase_date}
                   onChange={handleInputChange}
                   required
                 />
@@ -265,8 +334,9 @@ const Investments: React.FC = () => {
 
               <div className="portfolio-list">
                 <div className="portfolio-header">
-                  <div className="portfolio-symbol">Symbol</div>
-                  <div className="portfolio-shares">Shares</div>
+                  <div className="portfolio-symbol">Asset</div>
+                  <div className="portfolio-type">Type</div>
+                  <div className="portfolio-shares">Quantity</div>
                   <div className="portfolio-price">Purchase Price</div>
                   <div className="portfolio-value">Total Value</div>
                   <div className="portfolio-actions">Actions</div>
@@ -279,10 +349,11 @@ const Investments: React.FC = () => {
                     variants={itemVariants}
                     whileHover={{ scale: 1.01, boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}
                   >
-                    <div className="portfolio-symbol">{item.symbol}</div>
-                    <div className="portfolio-shares">{item.shares.toFixed(2)}</div>
+                    <div className="portfolio-symbol">{item.asset_name}</div>
+                    <div className="portfolio-type">{item.asset_type}</div>
+                    <div className="portfolio-shares">{item.quantity.toFixed(2)}</div>
                     <div className="portfolio-price">${item.purchase_price.toFixed(2)}</div>
-                    <div className="portfolio-value">${(item.shares * item.purchase_price).toFixed(2)}</div>
+                    <div className="portfolio-value">${(item.quantity * item.purchase_price).toFixed(2)}</div>
                     <div className="portfolio-actions">
                       <motion.button
                         className="action-button delete"
@@ -363,9 +434,11 @@ const Investments: React.FC = () => {
                       className="add-to-portfolio-button"
                       onClick={() => {
                         setFormData({
-                          symbol: rec.symbol,
-                          shares: 0,
-                          purchase_price: rec.price
+                          asset_name: rec.symbol,
+                          asset_type: rec.type.toLowerCase(),
+                          quantity: 0,
+                          purchase_price: rec.price,
+                          purchase_date: new Date().toISOString().split('T')[0]
                         });
                         setShowAddForm(true);
                         setActiveTab('portfolio');

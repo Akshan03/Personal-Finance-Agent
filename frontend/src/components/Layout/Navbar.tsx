@@ -39,6 +39,9 @@ const Navbar: React.FC = () => {
         <Link to="/investments">
           <motion.div whileHover={{ y: -3 }} className="nav-link">Investments</motion.div>
         </Link>
+        <Link to="/budget-advice">
+          <motion.div whileHover={{ y: -3 }} className="nav-link">Budget Advice</motion.div>
+        </Link>
         <Link to="/fraud-detection">
           <motion.div whileHover={{ y: -3 }} className="nav-link">Fraud Detection</motion.div>
         </Link>

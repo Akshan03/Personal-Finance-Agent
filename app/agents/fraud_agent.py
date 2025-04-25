@@ -1,135 +1,163 @@
-import autogen
-from typing import List, Dict, Any
+import os
+import json
+from typing import List, Dict, Any, Optional
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 
+from app.config import settings
 from app.models.transaction import Transaction, TransactionCategory
-from app.utils.llm_config import get_groq_config, get_agent_config
 
 # Configuration for the fraud detection agent
 FRAUD_AGENT_CONFIG = {
     "name": "Fraud Detective",
     "description": "I analyze financial transactions to identify potentially fraudulent activities."
-    # llm_config is now handled dynamically through get_groq_config
 }
 
 class FraudDetectionAgent:
     """Agent responsible for analyzing transactions and detecting potential fraud."""
     
-    def __init__(self, model_config=None):
-        """Initialize the fraud detection agent with optional model configuration."""
-        # Use agent configuration with Docker disabled and low temperature for more deterministic fraud detection
-        config = model_config or get_agent_config(temperature=0.1)
+    def __init__(self):
+        """Initialize the fraud detection agent"""
+        # Set up API credentials
+        self.groq_api_key = os.getenv("GROQ_API_KEY", settings.groq_api_key)
+        self.groq_model = os.getenv("GROQ_MODEL", settings.groq_model)
         
-        # Create the Autogen assistant agent
-        self.agent = autogen.AssistantAgent(
-            name=FRAUD_AGENT_CONFIG["name"],
-            system_message=self._build_system_message(),
-            llm_config=config
-        )
-        
-        # User proxy agent to interact with the assistant
-        self.user_proxy = autogen.UserProxyAgent(
-            name="Finance System",
-            is_termination_msg=lambda x: "FRAUD_ANALYSIS_COMPLETE" in x.get("content", ""),
-            human_input_mode="NEVER",  # No human input needed, system-to-system communication
-            code_execution_config={"use_docker": False}  # Explicitly disable Docker requirement
+        # Create a dedicated OpenAI client for Groq
+        from openai import OpenAI
+        self.client = OpenAI(
+            api_key=self.groq_api_key,
+            base_url="https://api.groq.com/openai/v1"
         )
     
     def _build_system_message(self) -> str:
         """Build the system message that defines the behavior of the fraud detection agent."""
         return f"""You are {FRAUD_AGENT_CONFIG['name']}, {FRAUD_AGENT_CONFIG['description']}
+
+        When analyzing transactions:
+        1. Look for patterns of unusual spending or activity
+        2. Identify amounts that are outliers compared to the user's usual spending
+        3. Notice rapid sequences of transactions that may indicate card theft
+        4. Be attentive to unusual merchant categories or locations
+        5. Check for transactions that don't match the user's typical behavior
         
-        You will be presented with a list of financial transactions. Your task is to:
+        Your task is to review financial transactions and identify potentially fraudulent activity.
+        Explain your reasoning clearly and assign a risk score from 1-10 to each suspicious transaction.
         
-        1. Identify any suspicious or potentially fraudulent transactions based on:
-           - Unusual transaction amounts (much larger than typical)
-           - Suspicious timing (late night, multiple rapid transactions)
-           - Unusual categories compared to user history
-           - Geographic anomalies (if location data available)
-        
-        2. Explain in simple terms why each flagged transaction might be suspicious
-        
-        3. Rate each suspicious transaction on a risk scale (Low, Medium, High)
-        
-        4. Provide recommendations on what actions the user should take
-        
-        Always format your final response with:
-        FRAUD_ANALYSIS_COMPLETE to signal the end of your analysis.
+        Format your response as a valid JSON object.
         """
     
-    def analyze_transactions(self, transactions: List[Transaction]) -> Dict[str, Any]:
-        """Analyze a list of transactions to detect potential fraud."""
-        if not transactions:
+    def analyze_transactions(self, transactions: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Analyze a list of transactions to detect potential fraud.
+        
+        Args:
+            transactions: List of transaction dictionaries to analyze
+            
+        Returns:
+            Dictionary with suspicious transactions and analysis
+        """
+        # Prepare transactions for analysis
+        transactions_df = pd.DataFrame(transactions)
+        
+        # Perform rule-based screening (basic checks)
+        suspicious_transactions = self._rule_based_screening(transactions_df)
+        
+        if not suspicious_transactions:
             return {
-                "status": "completed",
-                "message": "No transactions provided for analysis.",
-                "suspicious_transactions": []
+                "suspicious_transactions": [],
+                "analysis": "No suspicious transactions detected."
             }
         
-        # Simple rule-based checks (baseline before using the LLM)
-        suspicious_transactions = self._rule_based_detection(transactions)
+        # Format the transactions for the analysis
+        transaction_text = self._format_transactions_for_analysis(suspicious_transactions)
         
-        # If we have suspicious transactions from rules, we can enhance the analysis with the LLM
-        if suspicious_transactions or len(transactions) > 10:
-            transactions_formatted = self._format_transactions_for_llm(transactions)
-            
-            # Create a prompt with the formatted transactions
-            prompt = f"""Here are the user's recent transactions:
-            
-            {transactions_formatted}
-            
-            Some transactions may have already been flagged as suspicious based on rules:
-            {self._format_suspicious_for_llm(suspicious_transactions) if suspicious_transactions else "None flagged by rules yet."}
-            
-            Please analyze the transactions and identify any potentially fraudulent activity.
-            Include the transaction IDs in your analysis and explain why you've flagged each one.
-            """
-            
-            # Initialize chat with the user proxy (system-to-system, no human needed)
-            self.user_proxy.initiate_chat(
-                self.agent,
-                message=prompt
+        # Run the AI analysis
+        prompt = f"""You are a financial fraud detection expert specializing in personal finance.
+
+        Analyze these potentially suspicious transactions and identify any that appear fraudulent. 
+        For each suspicious transaction, explain why it might be fraudulent and assign a risk score from 1-10.
+
+        Transactions to analyze:
+        {transaction_text}
+
+        Respond with your analysis in this JSON format:
+        {{
+            "potentially_fraudulent": [list of transaction IDs that appear fraudulent],
+            "analysis": {{
+                "transaction_id": {{
+                    "risk_score": number,
+                    "explanation": "detailed explanation"
+                }}
+            }},
+            "summary": "A brief executive summary of your findings."
+        }}
+
+        Your response must be valid JSON.
+        """
+        
+        # Use the OpenAI client directly with the Groq API
+        try:
+            response = self.client.chat.completions.create(
+                model=self.groq_model,
+                messages=[
+                    {"role": "system", "content": self._build_system_message()},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1  # Keep temperature low for consistent results
             )
             
-            # Extract the fraud analysis results from the agent's response
-            last_message = self.user_proxy.chat_messages[self.agent.name][-1]["content"]
+            # Extract the response content
+            response_content = response.choices[0].message.content
             
-            # Process the agent's response and merge with rule-based results
-            llm_results = self._process_llm_response(last_message)
-            final_results = self._merge_detection_results(suspicious_transactions, llm_results)
+            # Clean up potential formatting issues with the JSON response
+            analysis_json = self._extract_json_from_response(response_content)
             
+            # Return results
             return {
-                "status": "completed",
-                "message": "Fraud analysis completed.",
-                "suspicious_transactions": final_results
+                "suspicious_transactions": suspicious_transactions,
+                "analysis": analysis_json
             }
-        
-        # If too few transactions or no suspicious ones detected by rules, 
-        # just return the rule-based results
-        return {
-            "status": "completed",
-            "message": "Fraud analysis completed using rule-based detection only.",
-            "suspicious_transactions": suspicious_transactions
-        }
+            
+        except Exception as e:
+            # Log the error and return a friendly error message
+            print(f"Error in fraud detection API call: {str(e)}")
+            return {
+                "suspicious_transactions": suspicious_transactions,
+                "analysis": {
+                    "error": "An error occurred during fraud analysis. Please try again later.",
+                    "technical_details": str(e)
+                }
+            }
     
-    def _rule_based_detection(self, transactions: List[Transaction]) -> List[Dict[str, Any]]:
-        """Simple rule-based fraud detection as a first pass."""
+    def _rule_based_screening(self, df: pd.DataFrame) -> List[Dict[str, Any]]:
+        """
+        Simple rule-based fraud detection to identify suspicious transactions.
+        
+        Args:
+            df: DataFrame of transactions to analyze
+            
+        Returns:
+            List of suspicious transaction dictionaries
+        """
         suspicious = []
-        if len(transactions) < 2:
+        
+        if len(df) < 2:
             return suspicious  # Need more data for meaningful analysis
         
-        # Convert to DataFrame for easier analysis
-        df = pd.DataFrame([
-            {
-                "id": t.id,
-                "amount": t.amount,
-                "category": str(t.category.value) if hasattr(t.category, "value") else str(t.category),
-                "timestamp": t.timestamp
-            } 
-            for t in transactions
-        ])
+        # Ensure we have the required columns
+        required_columns = ['id', 'amount', 'category', 'timestamp', 'description']
+        for col in required_columns:
+            if col not in df.columns:
+                if col == 'description':
+                    df['description'] = 'No description available'
+                else:
+                    print(f"Missing required column: {col}")
+                    return suspicious  # Can't analyze without essential data
+        
+        # Convert timestamp to datetime if needed
+        if not pd.api.types.is_datetime64_any_dtype(df['timestamp']):
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
         
         # Sort by timestamp for time-based analysis
         df = df.sort_values(by="timestamp")
@@ -142,12 +170,7 @@ class FraudDetectionAgent:
             
             outliers = df[df["amount"] > threshold]
             for _, row in outliers.iterrows():
-                suspicious.append({
-                    "transaction_id": row["id"],
-                    "reason": f"Unusually large amount (${row['amount']:.2f})",
-                    "risk_level": "Medium",
-                    "detection_method": "rule-based"
-                })
+                suspicious.append(row.to_dict())
         
         # 2. Check for rapid succession transactions
         if len(df) > 3:
@@ -155,115 +178,99 @@ class FraudDetectionAgent:
             rapid_txns = df[(df["time_diff"] < 10) & (df["time_diff"] > 0)]  # Less than 10 minutes apart
             
             for _, row in rapid_txns.iterrows():
-                suspicious.append({
-                    "transaction_id": row["id"],
-                    "reason": f"Transaction made very quickly after previous one ({row['time_diff']:.1f} minutes)",
-                    "risk_level": "Low",
-                    "detection_method": "rule-based"
-                })
+                # Add transaction if not already in suspicious list
+                if not any(s['id'] == row['id'] for s in suspicious):
+                    suspicious.append(row.to_dict())
+                    
+        # 3. Check for unusual merchants/categories
+        unusual_categories = ['gambling', 'adult', 'cryptocurrency', 'wire_transfer']
+        unusual_txns = df[df['category'].str.lower().isin(unusual_categories)]
         
-        return suspicious
-    
-    def _format_transactions_for_llm(self, transactions: List[Transaction]) -> str:
-        """Format transaction data for LLM consumption."""
-        formatted = "ID | Amount | Category | Date | Time\n"
-        formatted += "--- | --- | --- | --- | ---\n"
-        
-        for t in transactions:
-            date_str = t.timestamp.strftime("%Y-%m-%d")
-            time_str = t.timestamp.strftime("%H:%M:%S")
-            formatted += f"{t.id} | ${t.amount:.2f} | {t.category.value if hasattr(t.category, 'value') else t.category} | {date_str} | {time_str}\n"
-        
-        return formatted
-    
-    def _format_suspicious_for_llm(self, suspicious: List[Dict[str, Any]]) -> str:
-        """Format suspicious transactions for LLM consumption."""
-        if not suspicious:
-            return "No suspicious transactions detected by rules."
-        
-        formatted = "Transaction ID | Reason | Risk Level\n"
-        formatted += "--- | --- | ---\n"
-        
-        for t in suspicious:
-            formatted += f"{t['transaction_id']} | {t['reason']} | {t['risk_level']}\n"
-        
-        return formatted
-    
-    def _process_llm_response(self, response: str) -> List[Dict[str, Any]]:
-        """Process the LLM's response to extract structured fraud detection results."""
-        suspicious = []
-        
-        # Simplified parsing - in production, would use more robust methods
-        if "no suspicious transactions" in response.lower():
-            return suspicious
-        
-        # Extract transaction IDs and reasons - this is a simple approach
-        # In production, you'd want more robust parsing
-        lines = response.split("\n")
-        current_id = None
-        current_reason = ""
-        current_risk = "Medium"  # Default
-        
-        for line in lines:
-            line = line.strip()
-            
-            # Check for transaction ID mentions
-            if "transaction" in line.lower() and "id" in line.lower() and any(char.isdigit() for char in line):
-                # Save previous transaction if there was one
-                if current_id is not None:
-                    suspicious.append({
-                        "transaction_id": current_id,
-                        "reason": current_reason.strip(),
-                        "risk_level": current_risk,
-                        "detection_method": "llm"
-                    })
+        for _, row in unusual_txns.iterrows():
+            if not any(s['id'] == row['id'] for s in suspicious):
+                suspicious.append(row.to_dict())
                 
-                # Extract new ID from line - simplified approach
-                for word in line.split():
-                    if word.isdigit():
-                        current_id = int(word)
-                        break
-                current_reason = ""
-                current_risk = "Medium"  # Reset to default
-            
-            # Check for risk level mentions
-            elif "risk" in line.lower():
-                if "high" in line.lower():
-                    current_risk = "High"
-                elif "medium" in line.lower():
-                    current_risk = "Medium"
-                elif "low" in line.lower():
-                    current_risk = "Low"
-            
-            # Otherwise, add to the reason
-            elif current_id is not None:
-                current_reason += " " + line
-        
-        # Add the last transaction if there is one
-        if current_id is not None:
-            suspicious.append({
-                "transaction_id": current_id,
-                "reason": current_reason.strip(),
-                "risk_level": current_risk,
-                "detection_method": "llm"
-            })
-        
         return suspicious
     
-    def _merge_detection_results(self, rule_based: List[Dict[str, Any]], llm_based: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Merge results from rule-based and LLM-based detection."""
-        merged = []
-        transaction_ids_added = set()
+    def _format_transactions_for_analysis(self, transactions: List[Dict[str, Any]]) -> str:
+        """
+        Format transaction dictionaries for LLM analysis.
         
-        # Add all rule-based detections
-        for detection in rule_based:
-            merged.append(detection)
-            transaction_ids_added.add(detection["transaction_id"])
+        Args:
+            transactions: List of transaction dictionaries to format
+            
+        Returns:
+            Formatted transaction text for the LLM
+        """
+        formatted = []
         
-        # Add LLM detections if not already added
-        for detection in llm_based:
-            if detection["transaction_id"] not in transaction_ids_added:
-                merged.append(detection)
-                transaction_ids_added.add(detection["transaction_id"])
+        for i, txn in enumerate(transactions):
+            # Handle timestamp formatting
+            timestamp = txn.get('timestamp', 'Unknown date')
+            if not isinstance(timestamp, str):
+                try:
+                    timestamp = timestamp.strftime('%Y-%m-%d %H:%M:%S')
+                except:
+                    timestamp = str(timestamp)
+                    
+            # Format each transaction
+            txn_string = f"Transaction #{i+1} (ID: {txn.get('id', 'Unknown ID')}):\n"
+            txn_string += f"  - Amount: ${txn.get('amount', 0):.2f}\n"
+            txn_string += f"  - Category: {txn.get('category', 'Uncategorized')}\n"
+            txn_string += f"  - Date: {timestamp}\n"
+            txn_string += f"  - Description: {txn.get('description', 'No description')}\n"
+            formatted.append(txn_string)
         
-        return merged
+        return "\n".join(formatted)
+    
+    def _extract_json_from_response(self, response: str) -> Dict[str, Any]:
+        """
+        Extract and parse JSON from the LLM response, handling common formatting issues.
+        
+        Args:
+            response: The raw response from the LLM
+            
+        Returns:
+            Parsed JSON as a dictionary
+        """
+        try:
+            # Handle common JSON extraction issues
+            # 1. Check for code blocks (```json ... ```)
+            if '```' in response:
+                # Extract content between ``` markers
+                blocks = response.split('```')
+                for i, block in enumerate(blocks):
+                    if i % 2 == 1:  # This is inside a code block
+                        # Remove 'json' prefix if present
+                        if block.lower().startswith('json\n'):
+                            block = block[4:].strip()
+                        try:
+                            return json.loads(block.strip())
+                        except:
+                            continue  # Try next block if this one fails
+            
+            # 2. Direct JSON parsing
+            try:
+                return json.loads(response)
+            except:
+                pass
+            
+            # 3. Find content between curly braces
+            start_idx = response.find('{')
+            end_idx = response.rfind('}')
+            if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                json_str = response[start_idx:end_idx+1]
+                return json.loads(json_str)
+                
+            # If we couldn't parse it, return a basic structure with the raw response
+            return {
+                "error": "Failed to parse JSON response",
+                "raw_response": response
+            }
+                
+        except Exception as e:
+            # Return error information
+            return {
+                "error": f"JSON parsing error: {str(e)}",
+                "raw_response": response
+            }

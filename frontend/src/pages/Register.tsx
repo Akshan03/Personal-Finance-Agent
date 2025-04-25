@@ -26,7 +26,14 @@ const Register: React.FC = () => {
       await register(username, email, password, fullName);
       navigate('/login', { state: { message: 'Registration successful. Please log in.' } });
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to register. Please try again.');
+      // Handle different error types from API or validation errors
+      if (typeof err.response?.data?.detail === 'object') {
+        // If it's a validation error object, convert to string
+        setError(JSON.stringify(err.response?.data?.detail) || 'Failed to register. Please try again.');
+      } else {
+        // Regular string error
+        setError(err.response?.data?.detail || 'Failed to register. Please try again.');
+      }
     }
   };
 
@@ -44,11 +51,11 @@ const Register: React.FC = () => {
           animate={{ scale: 1 }}
           transition={{ duration: 0.5 }}
         >
-          ud83cudfe6 FinanceManager
+          🏦 FinanceManager
         </motion.div>
         <h2>Create Your Account</h2>
         
-        {error && <div className="error-message">{error}</div>}
+        {error && <div className="error-message">{typeof error === 'object' ? JSON.stringify(error) : error}</div>}
         
         <form onSubmit={handleSubmit}>
           <div className="form-group">

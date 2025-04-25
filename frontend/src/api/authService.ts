@@ -14,7 +14,18 @@ interface RegisterData {
 
 export const authService = {
   login: async (data: LoginData) => {
-    const response = await axiosInstance.post('/auth/login', data);
+    // Convert to URLSearchParams for OAuth2 compatibility
+    const params = new URLSearchParams();
+    params.append('username', data.username);
+    params.append('password', data.password);
+    
+    // Use axios with special content-type for form submission
+    const response = await axiosInstance.post('/auth/token', params, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+    
     if (response.data.access_token) {
       localStorage.setItem('access_token', response.data.access_token);
     }
@@ -30,7 +41,7 @@ export const authService = {
   },
 
   getCurrentUser: async () => {
-    return await axiosInstance.get('/auth/me');
+    return await axiosInstance.get('/auth/users/me');
   },
 
   isAuthenticated: () => {

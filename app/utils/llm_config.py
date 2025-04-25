@@ -13,7 +13,8 @@ class LLMConfiguration(BaseModel):
 
 def get_groq_config(model_name: str = None, temperature: float = 0.1) -> LLMConfiguration:
     """
-    Returns a configuration for Groq API
+    Returns a configuration for Groq API - this is only used internally now,
+    as the agent_config function has been simplified to avoid compatibility issues.
     
     Args:
         model_name: The name of the Groq model to use (defaults to settings)
@@ -26,43 +27,44 @@ def get_groq_config(model_name: str = None, temperature: float = 0.1) -> LLMConf
     if not groq_api_key:
         raise ValueError("GROQ_API_KEY is not set in environment variables or settings")
     
-    # Use specified model or fall back to settings
-    model = model_name or os.getenv("GROQ_MODEL", settings.groq_model)
+    # Use a hardcoded known-working model to ensure compatibility
+    model = "llama3-70b-8192"  # Using a currently supported model (as of April 2025)
     
-    # Create configuration for Groq
-    config_list = [
-        {
-            "model": model,
-            "api_key": groq_api_key,
-            "api_base": "https://api.groq.com/openai/v1",
-        }
-    ]
+    # NOTE: This function is mainly kept for backwards compatibility
+    # The actual agent configuration is now handled in get_agent_config()
+    # to avoid parameters being incorrectly passed to the OpenAI client
     
     return LLMConfiguration(
         model=model,
         temperature=temperature,
-        config_list=config_list
+        config_list=[]  # Empty config list to avoid issues
     )
 
 def get_agent_config(model_name: str = None, temperature: float = 0.1) -> Dict[str, Any]:
     """
-    Returns a complete configuration for AutoGen agents with Docker disabled
+    Returns a configuration for AutoGen agents compatible with the OpenAI client
     
     Args:
         model_name: The name of the model to use (defaults to settings)
         temperature: The temperature setting for the model (default: 0.1)
         
     Returns:
-        Dictionary with complete AutoGen configuration
+        Dictionary with LLM configuration compatible with AutoGen's OAI client
     """
-    # Get base LLM configuration
-    llm_config = get_groq_config(model_name, temperature).dict()
+    groq_api_key = os.getenv("GROQ_API_KEY", settings.groq_api_key)
+    if not groq_api_key:
+        raise ValueError("GROQ_API_KEY is not set in environment variables or settings")
     
-    # Add code execution configuration with Docker disabled
-    llm_config["code_execution_config"] = {
-        "use_docker": False,  # Disable Docker requirement
-        "last_n_messages": 2,  # Process last 2 messages for code execution
-        "work_dir": "./agent_workspace",  # Working directory for code execution
+    # Use a hardcoded known-working model to ensure compatibility
+    model = "llama3-70b-8192"  # Using a currently supported model (as of April 2025)
+    
+    # This is the format that works with AutoGen's OpenAI client
+    # Note: api_type must be set to "openai" and api_base parameters must be handled with care
+    return {
+        "model": model,
+        "temperature": temperature,
+        "api_key": groq_api_key,
+        # Use OpenAI format client with custom base URL
+        "api_type": "openai",
+        # Don't include api_base here, it causes issues with the completions client
     }
-    
-    return llm_config

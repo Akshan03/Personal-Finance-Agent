@@ -1,40 +1,42 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { transactionService } from '../api/transactionService';
 import { fraudService } from '../api/fraudService';
 import { investmentService } from '../api/investmentService';
-import { Link } from 'react-router-dom';
+import budgetService, { BudgetPlan } from '../api/budgetService';
 import { useAuth } from '../context/AuthContext';
 import { TransactionStats } from '../types/transaction';
 import { FraudScanResult } from '../types/fraud';
 import { MarketTrend } from '../types/investment';
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
+import { Link } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState<TransactionStats | null>(null);
+  const [budgetPlan, setBudgetPlan] = useState<BudgetPlan | null>(null);
   const [fraudAlerts, setFraudAlerts] = useState<FraudScanResult | null>(null);
   const [marketTrends, setMarketTrends] = useState<MarketTrend[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [period, setPeriod] = useState<'monthly' | 'yearly' | 'all'>('monthly');
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        
-        // Fetch transaction statistics
-        const statsData = await transactionService.getTransactionStats();
+        // Fetch budget plan for the summary card (matches BudgetAdvice)
+        const budgetData = await budgetService.generateBudgetPlan(period);
+        setBudgetPlan(budgetData);
+        // Optionally, still fetch transaction stats for charts, but not for summary card
+        const statsData = await transactionService.getTransactionStats(period);
         setStats(statsData);
-        
         // Fetch fraud alerts
         const fraudData = await fraudService.scanTransactions();
         setFraudAlerts(fraudData);
-        
         // Fetch market trends
         const trendsData = await investmentService.getMarketTrends();
         setMarketTrends(trendsData.trends || []);
-        
         setLoading(false);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
@@ -42,18 +44,42 @@ const Dashboard: React.FC = () => {
         setLoading(false);
       }
     };
-
     fetchDashboardData();
-  }, []);
+  }, [period]);
+
+  const handlePeriodChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setPeriod(e.target.value as 'monthly' | 'yearly' | 'all');
+  };
+
 
   // Prepare data for pie chart
   const preparePieChartData = () => {
     if (!stats || !stats.category_breakdown) return [];
     
-    return Object.entries(stats.category_breakdown).map(([category, details]) => ({
-      name: category,
-      value: details.amount
-    }));
+    // Make sure we have proper data to display
+    const entries = Object.entries(stats.category_breakdown);
+    if (entries.length === 0) return [];
+    
+    // Map the entries to a format that recharts can use
+    const chartData = entries.map(([category, details]) => {
+      // Safely handle the amount field which could be various types
+      let amount = 0;
+      if (typeof details === 'object' && details !== null) {
+        const detailsAmount = (details as any).amount;
+        if (typeof detailsAmount === 'number') {
+          amount = detailsAmount;
+        } else if (typeof detailsAmount === 'string') {
+          amount = parseFloat(detailsAmount);
+        }
+      }
+      return {
+        name: category,
+        value: amount
+      };
+    });
+    
+    // Remove any entries with zero or invalid values
+    return chartData.filter(item => item.value > 0);
   };
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#83A6ED', '#8DD1E1', '#A4DE6C'];
@@ -82,10 +108,20 @@ const Dashboard: React.FC = () => {
     return (
       <div className="loading-container">
         <motion.div 
-          className="loader"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-        />
+          className="loading-indicator"
+          initial={{ opacity: 0.5 }}
+          animate={{ 
+            opacity: [0.5, 1, 0.5],
+            scale: [1, 1.05, 1] 
+          }}
+          transition={{ 
+            duration: 1.5, 
+            repeat: Infinity, 
+            ease: "easeInOut" 
+          }}
+        >
+          <div className="loading-pulse"></div>
+        </motion.div>
         <p>Loading dashboard data...</p>
       </div>
     );
@@ -112,25 +148,39 @@ const Dashboard: React.FC = () => {
         <h1>Welcome, {user?.username || 'User'}!</h1>
         <p className="dashboard-date">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
       </motion.div>
-      
+
       <div className="dashboard-grid">
         {/* Financial Summary Card */}
         <motion.div className="dashboard-card summary-card" variants={itemVariants}>
-          <h2>Financial Summary</h2>
-          {stats ? (
-            <div className="summary-stats">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+            <h2 style={{ margin: 0 }}>Financial Summary</h2>
+            <div className="dashboard-period-selector" style={{ minWidth: 0 }}>
+              <select
+                id="dashboard-period"
+                value={period}
+                onChange={handlePeriodChange}
+                style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '0.95rem', border: '1px solid #e5e7eb', background: '#f9f9fb', minWidth: 0 }}
+              >
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+                <option value="all">All Time</option>
+              </select>
+            </div>
+          </div>
+          {budgetPlan && budgetPlan.summary ? (
+            <div className="summary-stats" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'stretch', gap: '1.5rem', width: '100%' }}>
               <div className="stat-item">
                 <h3>Income</h3>
-                <p className="stat-value income">${stats.total_income.toFixed(2)}</p>
+                <p className="stat-value income">${budgetPlan.summary.total_income.toFixed(2)}</p>
               </div>
               <div className="stat-item">
                 <h3>Expenses</h3>
-                <p className="stat-value expense">${stats.total_expenses.toFixed(2)}</p>
+                <p className="stat-value expense">${budgetPlan.summary.total_expenses.toFixed(2)}</p>
               </div>
               <div className="stat-item">
                 <h3>Savings</h3>
-                <p className="stat-value">${stats.net_savings.toFixed(2)}</p>
-                <p className="stat-label">({stats.savings_rate.toFixed(1)}% of income)</p>
+                <p className="stat-value savings">${budgetPlan.summary.net_savings.toFixed(2)}</p>
+                <p className="stat-label">{budgetPlan.summary.savings_rate.toFixed(1)}% of income</p>
               </div>
             </div>
           ) : (
@@ -140,37 +190,53 @@ const Dashboard: React.FC = () => {
         </motion.div>
         
         {/* Expense Breakdown Card */}
-        <motion.div className="dashboard-card" variants={itemVariants}>
-          <h2>Expense Breakdown</h2>
-          {stats && Object.keys(stats.category_breakdown).length > 0 ? (
-            <div className="chart-container">
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
+        <motion.div className="dashboard-card">
+          <div className="expense-breakdown panel">
+            <h2>Expense Breakdown</h2>
+            {stats && stats.category_breakdown && Object.keys(stats.category_breakdown).length > 0 && preparePieChartData().length > 0 ? (
+              <div className="pie-chart-container">
+                <PieChart width={250} height={250}>
                   <Pie
                     data={preparePieChartData()}
                     cx="50%"
                     cy="50%"
+                    labelLine={false}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
-                    label={({ name, percent }) => `${name}: ${typeof percent === 'number' ? (percent * 100).toFixed(0) : 0}%`}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                   >
                     {preparePieChartData().map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => [`$${typeof value === 'number' ? value.toFixed(2) : value}`, 'Amount']} />
+                  <Tooltip formatter={(value) => `$${parseFloat(value.toString()).toFixed(2)}`} />
+                  <Legend />
                 </PieChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <p>No expense data available yet.</p>
-          )}
+              </div>
+            ) : (
+              <div className="no-data-container">
+                <p className="no-data">No expense data available yet.</p>
+                <p className="no-data-hint">Add transactions with negative amounts to see your expense breakdown.</p>
+                <Link to="/transactions" className="add-transaction-btn">
+                  Add Expense Transaction
+                </Link>
+              </div>
+            )}
+          </div>
         </motion.div>
         
         {/* Fraud Alerts Card */}
         <motion.div className="dashboard-card fraud-card" variants={itemVariants}>
           <h2>Fraud Alerts</h2>
+          {fraudAlerts?.last_scan_time && (
+            <div className="last-scan-time" style={{ fontSize: '0.95rem', color: '#888', marginBottom: '0.5rem' }}>
+              Last scan: {new Date(fraudAlerts.last_scan_time).toLocaleString('en-US', {
+                year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+              })}
+            </div>
+          )}
+
           {fraudAlerts?.suspicious_transactions_found ? (
             <div className="fraud-alerts">
               <div className="alert-badge warning">

@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     # LLM API Settings
     # Groq AI Configuration
     groq_api_key: Optional[str] = Field(None, alias='GROQ_API_KEY')
-    groq_model: str = Field("llama3-8b-8192", alias='GROQ_MODEL')
+    groq_model: str = Field("llama3-70b-8192", alias='GROQ_MODEL')  # Updated to use current supported model (as of April 2025)
     
     # Agent Configuration (Optional)
     huggingface_api_key: Optional[str] = Field(None, alias='HUGGINGFACE_API_KEY')

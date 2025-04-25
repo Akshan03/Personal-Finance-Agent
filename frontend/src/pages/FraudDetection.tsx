@@ -128,10 +128,20 @@ const FraudDetectionPage: React.FC = () => {
     return (
       <div className="loading-container">
         <motion.div 
-          className="loader"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-        />
+          className="loading-indicator"
+          initial={{ opacity: 0.5 }}
+          animate={{ 
+            opacity: [0.5, 1, 0.5],
+            scale: [1, 1.05, 1] 
+          }}
+          transition={{ 
+            duration: 1.5, 
+            repeat: Infinity, 
+            ease: "easeInOut" 
+          }}
+        >
+          <div className="loading-pulse"></div>
+        </motion.div>
         <p>Loading fraud detection data...</p>
       </div>
     );
@@ -170,13 +180,13 @@ const FraudDetectionPage: React.FC = () => {
       )}
 
       <motion.div 
-        className="fraud-overview"
+        className="fraud-detection-section"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
       >
+        <h2 className="fraud-section-title">Fraud Scan Status</h2>
         <div className="fraud-status-box">
-          <h2>Fraud Scan Status</h2>
           {fraudResults && (
             <div className="status-content">
               <div className={`status-indicator ${fraudResults.suspicious_transactions_found > 0 ? 'warning' : 'safe'}`}>
@@ -207,12 +217,12 @@ const FraudDetectionPage: React.FC = () => {
 
       {suspiciousTransactions.length > 0 ? (
         <motion.div 
-          className="suspicious-transactions"
+          className="fraud-detection-section suspicious-transactions"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
         >
-          <h2>Suspicious Transactions</h2>
+          <h2 className="fraud-section-title">Suspicious Transactions</h2>
           <div className="transaction-list">
             {suspiciousTransactions.map((transaction, index) => (
               <motion.div 
@@ -271,25 +281,28 @@ const FraudDetectionPage: React.FC = () => {
         </motion.div>
       ) : (
         <motion.div 
-          className="no-suspicious-transactions"
+          className="fraud-detection-section no-suspicious-transactions"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
         >
-          <div className="safe-icon">✅</div>
-          <h2>No Suspicious Activity Detected</h2>
-          <p>Your recent transactions appear to be normal. We'll continue to monitor your account for any unusual activity.</p>
+          <h2 className="fraud-section-title">Security Status</h2>
+          <div className="safe-status">
+            <div className="safe-icon">✅</div>
+            <h3>No Suspicious Activity Detected</h3>
+            <p>Your recent transactions appear to be normal. We'll continue to monitor your account for any unusual activity.</p>
+          </div>
         </motion.div>
       )}
 
-      <motion.div 
-        className="fraud-protection-tips"
+      <motion.div
+        className="fraud-detection-section fraud-tips"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
+        transition={{ delay: 0.3 }}
       >
-        <h2>Fraud Protection Tips</h2>
-        <div className="tips-container">
+        <h2 className="fraud-section-title">Fraud Protection Tips</h2>
+        <div className="fraud-tips-container">
           <div className="tip-item">
             <div className="tip-icon">🔒</div>
             <div className="tip-content">

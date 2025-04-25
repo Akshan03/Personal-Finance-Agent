@@ -1,0 +1,159 @@
+/* AppTheme.css - Modern Finance App Theme */
+:root {
+  /* Modern color palette */
+  --primary-color: #4f46e5;      /* Rich indigo */
+  --primary-dark: #3730a3;       /* Dark indigo */
+  --primary-light: #818cf8;      /* Light indigo */
+  
+  --secondary-color: #10b981;    /* Emerald green */
+  --secondary-dark: #059669;     /* Dark emerald */
+  --secondary-light: #34d399;    /* Light emerald */
+  
+  --dark-color: #1f2937;         /* Dark slate */
+  --medium-color: #4b5563;       /* Medium slate */
+  --light-color: #e5e7eb;        /* Light gray */
+  --lighter-color: #f3f4f6;      /* Ultra light gray */
+  
+  --success-color: #10b981;      /* Green */
+  --warning-color: #f59e0b;      /* Amber */
+  --danger-color: #ef4444;       /* Red */
+  --info-color: #3b82f6;         /* Blue */
+  
+  /* Layout variables */
+  --border-radius: 0.5rem;
+  --border-radius-lg: 0.75rem;
+  --border-radius-sm: 0.25rem;
+  --box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --box-shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --box-shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  
+  /* Animations */
+  --transition-speed: 0.2s ease;
+  --transition-speed-slow: 0.3s ease;
+}
+
+body {
+  background-color: #f9fafb;
+  color: var(--dark-color);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  line-height: 1.5;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--dark-color);
+  line-height: 1.3;
+}
+
+h1 {
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+button, .button {
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border-radius: var(--border-radius);
+  font-weight: 500;
+  transition: all var(--transition-speed);
+  border: none;
+  background-color: var(--primary-color);
+  color: white;
+}
+
+button:hover, .button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--box-shadow);
+}
+
+button:active, .button:active {
+  transform: translateY(0);
+}
+
+.button-secondary {
+  background-color: var(--secondary-color);
+}
+
+.button-outline {
+  background-color: transparent;
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color);
+}
+
+.button-outline:hover {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.card {
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  transition: all var(--transition-speed);
+}
+
+.card:hover {
+  box-shadow: var(--box-shadow-md);
+}
+
+/* Form elements */
+input, select, textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--light-color);
+  border-radius: var(--border-radius);
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  transition: border-color var(--transition-speed);
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+/* Modern badges & tags */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-primary {
+  background-color: var(--primary-light);
+  color: var(--primary-dark);
+}
+
+.badge-success {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: var(--success-color);
+}
+
+.badge-warning {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: var(--warning-color);
+}
+
+.badge-danger {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: var(--danger-color);
+}

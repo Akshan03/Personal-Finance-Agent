@@ -1,0 +1,19 @@
+import random
+from typing import Dict, List, Any, Optional
+import json
+import os
+import httpx
+import asyncio
+from datetime import datetime, timedelta
+from app.config import settings
+
+# Path to mock data file as fallback (adjust relative path as needed)
+MOCK_DATA_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'mock_market_data.json')
+
+# Cache for market data to avoid excessive API calls
+_market_cache = {
+    'stock_data': {},       # Symbol -> price data
+    'market_trends': None,  # Overall market data
+    'last_updated': None,   # Last update timestamp
+    'recommendations': {}   # Risk level -> recommendations
+}

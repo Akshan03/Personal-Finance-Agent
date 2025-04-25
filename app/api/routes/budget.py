@@ -5,8 +5,7 @@ from app.models.user import User
 from app.schemas import transaction as transaction_schema
 from app.api.dependencies import get_current_user
 from app.services import finance_service
-# Import agent-related functions later when implemented
-# from app.agents.orchestrator import run_budget_agent
+from app.agents.budget_agent import BudgetPlanningAgent
 
 router = APIRouter()
 
@@ -21,6 +20,68 @@ async def get_budget_summary(
     
     summary = finance_service.calculate_budget_summary(transactions)
     return summary
+
+@router.post("/generate-plan", response_model=Dict[str, Any])
+async def generate_budget_plan(
+    timeframe: str = "monthly",
+    current_user: User = Depends(get_current_user)
+):
+    """Generates a personalized budget plan using the AI budget agent."""
+    # Fetch user's recent transactions
+    transactions = await finance_service.get_user_transactions(user_id=current_user.id, limit=100)
+    
+    if not transactions:
+        return {
+            "summary": "We don't have enough transaction data to provide a personalized budget plan yet.",
+            "budget_allocation": {},
+            "savings_recommendations": ["Start by adding your income and expenses to get personalized advice."],
+            "spending_insights": []
+        }
+    
+    # Initialize the budget agent
+    budget_agent = BudgetPlanningAgent()
+    
+    # Get transaction data in the format needed for the agent
+    transaction_data = [
+        {
+            "id": str(tx.id),
+            "amount": tx.amount,
+            "category": tx.category.value,
+            "description": tx.description,
+            "timestamp": tx.timestamp.isoformat()
+        }
+        for tx in transactions
+    ]
+    
+    # Get income, expenses, and savings from transaction data
+    income = sum(tx.amount for tx in transactions if tx.amount > 0)
+    expenses = abs(sum(tx.amount for tx in transactions if tx.amount < 0))
+    net_savings = income - expenses
+    
+    # If all transactions are positive, determine income/expenses by category
+    if expenses == 0:
+        # Treat 'income' category as income, everything else as expense
+        income = sum(tx.amount for tx in transactions if tx.category.value.lower() == 'income')
+        expenses = sum(tx.amount for tx in transactions if tx.category.value.lower() != 'income')
+        net_savings = income - expenses
+    
+    # Get the budget plan from the agent
+    try:
+        budget_plan = await budget_agent.generate_budget_plan(
+            transaction_data=transaction_data,
+            timeframe=timeframe,
+            income=income,
+            expenses=expenses,
+            savings=net_savings
+        )
+        
+        # Return the budget plan
+        return budget_plan
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generating budget plan: {str(e)}"
+        )
 
 @router.post("/advice", response_model=Dict[str, Any])
 async def get_budget_advice(

@@ -38,10 +38,12 @@ async def scan_transactions_for_fraud(
             "risk_level": suspicious["risk_level"]
         })
     
+    from datetime import datetime
     return {
         "message": "Fraud analysis complete.",
         "suspicious_transactions_found": suspicious_count,
-        "details": details
+        "details": details,
+        "last_scan_time": datetime.utcnow().isoformat() + 'Z'
     }
 
 @router.post("/report-transaction/{transaction_id}", response_model=Dict[str, str])

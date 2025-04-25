@@ -100,14 +100,24 @@ const Transactions: React.FC = () => {
     visible: { y: 0, opacity: 1 }
   };
 
-  if (loading && transactions.length === 0) {
+  if (loading) {
     return (
       <div className="loading-container">
         <motion.div 
-          className="loader"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-        />
+          className="loading-indicator"
+          initial={{ opacity: 0.5 }}
+          animate={{ 
+            opacity: [0.5, 1, 0.5],
+            scale: [1, 1.05, 1] 
+          }}
+          transition={{ 
+            duration: 1.5, 
+            repeat: Infinity, 
+            ease: "easeInOut" 
+          }}
+        >
+          <div className="loading-pulse"></div>
+        </motion.div>
         <p>Loading transactions...</p>
       </div>
     );
@@ -218,50 +228,55 @@ const Transactions: React.FC = () => {
 
       {transactions.length > 0 ? (
         <motion.div 
-          className="transactions-list"
+          className="transactions-table-container"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
         >
-          <div className="transaction-header">
-            <div className="transaction-date">Date</div>
-            <div className="transaction-description">Description</div>
-            <div className="transaction-category">Category</div>
-            <div className="transaction-amount">Amount</div>
-            <div className="transaction-actions">Actions</div>
-          </div>
-          
-          {transactions.map(transaction => (
-            <motion.div 
-              key={transaction.id}
-              className={`transaction-item ${transaction.id === highlightedId ? 'highlighted' : ''}`}
-              variants={itemVariants}
-              whileHover={{ scale: 1.01, boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}
-            >
-              <div className="transaction-date">
-                {new Date(transaction.timestamp).toLocaleDateString()}
-              </div>
-              <div className="transaction-description">{transaction.description}</div>
-              <div className="transaction-category">
-                <span className={`category-badge ${transaction.category}`}>
-                  {transaction.category}
-                </span>
-              </div>
-              <div className={`transaction-amount ${transaction.category === 'income' ? 'income' : 'expense'}`}>
-                {transaction.category === 'income' ? '+' : '-'}${Math.abs(transaction.amount).toFixed(2)}
-              </div>
-              <div className="transaction-actions">
-                <motion.button
-                  className="action-button delete"
-                  onClick={() => handleDelete(transaction.id)}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
+          <table className="transactions-table">
+            <thead>
+              <tr>
+                <th className="transaction-date">Date</th>
+                <th className="transaction-description">Description</th>
+                <th className="transaction-category">Category</th>
+                <th className="transaction-amount">Amount</th>
+                <th className="transaction-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transactions.map(transaction => (
+                <motion.tr 
+                  key={transaction.id}
+                  className={`transaction-row ${transaction.id === highlightedId ? 'highlighted' : ''}`}
+                  variants={itemVariants}
+                  whileHover={{ backgroundColor: '#f9fafb' }}
                 >
-                  Delete
-                </motion.button>
-              </div>
-            </motion.div>
-          ))}
+                  <td className="transaction-date">
+                    {new Date(transaction.timestamp).toLocaleDateString()}
+                  </td>
+                  <td className="transaction-description">{transaction.description}</td>
+                  <td className="transaction-category">
+                    <span className={`category-badge ${transaction.category}`}>
+                      {transaction.category}
+                    </span>
+                  </td>
+                  <td className={`transaction-amount ${transaction.category === 'income' ? 'income' : 'expense'}`}>
+                    {transaction.category === 'income' ? '+' : '-'}${Math.abs(transaction.amount).toFixed(2)}
+                  </td>
+                  <td className="transaction-actions">
+                    <motion.button
+                      className="action-button delete"
+                      onClick={() => handleDelete(transaction.id)}
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                    >
+                      Delete
+                    </motion.button>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
           
           <div className="pagination">
             <button 

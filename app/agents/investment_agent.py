@@ -1,9 +1,11 @@
 import autogen
+import os
 from typing import List, Dict, Any
 import pandas as pd
 import random
 from datetime import datetime, timedelta
 
+from app.config import settings
 from app.models.portfolio import Portfolio
 from app.services import market_service
 from app.utils.llm_config import get_groq_config, get_agent_config
@@ -23,19 +25,35 @@ class InvestmentAdvisorAgent:
         # Use agent configuration with Docker disabled and low temperature for more conservative investment advice
         config = model_config or get_agent_config(temperature=0.1)
         
-        # Create the Autogen assistant agent
+        # Create the Autogen assistant agent with proper Groq configuration
         self.agent = autogen.AssistantAgent(
             name=INVESTMENT_AGENT_CONFIG["name"],
             system_message=self._build_system_message(),
             llm_config=config
         )
         
+        # Get the Groq API key and configure client
+        groq_api_key = os.getenv("GROQ_API_KEY", settings.groq_api_key)
+        
+        # Configure client to use Groq instead of OpenAI
+        import openai
+        from openai import OpenAI
+        
+        # For autogen's OpenAI Client we need to set these environment variables
+        # This ensures the client uses the right API endpoint
+        os.environ["OPENAI_API_KEY"] = groq_api_key
+        os.environ["OPENAI_API_BASE"] = "https://api.groq.com/openai/v1"
+        
+        # Replace the OpenAI client in the agent with one specifically configured for Groq
+        self.agent.llm_config["api_type"] = "openai"  # Must be 'openai' for compatibility
+        self.agent.llm_config["api_key"] = groq_api_key
+        
         # User proxy agent to interact with the assistant
         self.user_proxy = autogen.UserProxyAgent(
             name="Finance System",
             is_termination_msg=lambda x: "INVESTMENT_ADVICE_COMPLETE" in x.get("content", ""),
-            human_input_mode="NEVER",  # No human input needed for system-to-system communication
-            code_execution_config={"use_docker": False}  # Explicitly disable Docker requirement
+            human_input_mode="NEVER"  # No human input needed for system-to-system communication
+            # Removed code_execution_config to avoid compatibility issues with Groq API
         )
     
     def _build_system_message(self) -> str:

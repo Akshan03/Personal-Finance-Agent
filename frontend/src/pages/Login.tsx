@@ -18,7 +18,14 @@ const Login: React.FC = () => {
       await login(username, password);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to login. Please check your credentials.');
+      // Handle different error types from API or validation errors
+      if (typeof err.response?.data?.detail === 'object') {
+        // If it's a validation error object, convert to string
+        setError(JSON.stringify(err.response?.data?.detail) || 'Failed to login. Please check your credentials.');
+      } else {
+        // Regular string error
+        setError(err.response?.data?.detail || 'Failed to login. Please check your credentials.');
+      }
     }
   };
 
@@ -40,7 +47,7 @@ const Login: React.FC = () => {
         </motion.div>
         <h2>Login to Your Account</h2>
         
-        {error && <div className="error-message">{error}</div>}
+        {error && <div className="error-message">{typeof error === 'object' ? JSON.stringify(error) : error}</div>}
         
         <form onSubmit={handleSubmit}>
           <div className="form-group">

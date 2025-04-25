@@ -29,7 +29,7 @@ class TransactionCreate(TransactionBase):
 
 # --- Schemas for Reading/Output --- #
 
-class Transaction(TransactionBase):
+class TransactionResponse(TransactionBase):
     """Schema for reading transaction data."""
     id: str
     user_id: str
@@ -40,3 +40,35 @@ class Transaction(TransactionBase):
         from_attributes=True,
         populate_by_name=True
     )
+
+# Alias for backward compatibility
+Transaction = TransactionResponse
+
+# --- Schema for Updates --- #
+class TransactionUpdate(BaseModel):
+    """Schema for updating a transaction."""
+    amount: Optional[float] = None
+    category: Optional[TransactionCategory] = None
+    description: Optional[str] = None
+    timestamp: Optional[datetime] = None
+    is_fraudulent: Optional[bool] = None
+    
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+        extra='ignore'
+    )
+
+# --- Schema for Statistics --- #
+class CategoryStat(BaseModel):
+    """Statistics for a single transaction category."""
+    amount: float
+    percentage: float
+
+class TransactionStats(BaseModel):
+    """Overall transaction statistics."""
+    total_income: float
+    total_expenses: float
+    net_savings: float
+    savings_rate: float
+    category_breakdown: dict[str, CategoryStat]
