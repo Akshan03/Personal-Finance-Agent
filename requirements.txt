@@ -22,5 +22,5 @@ email-validator
 streamlit
 requests
 plotly
-
+openai
 # Note: Ensure you have a compatible CUDA version if using GPU with torch/transformers
