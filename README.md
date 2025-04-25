@@ -1,6 +1,6 @@
 # Personal Finance Assistant Agent Swarm
 
-<video src="assets/demo-video.mp4" controls width="600" style="display:block;margin-bottom:16px;">
+<video src="demo-video.mp4" controls width="600" style="display:block;margin-bottom:16px;">
   Your browser does not support the video tag.
 </video>
 
